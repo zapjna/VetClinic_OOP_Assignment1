@@ -1,18 +1,50 @@
+import java.util.ArrayList;
+import java.util.Scanner;
+
 public class Main {
     public static void main(String[] args) {
-        Pet pet1 = new Pet("Buddy", "Dog", 3, "Healthy");
-        Pet pet2 = new Pet();
+        ArrayList<Person> people = new ArrayList<>();
+        ArrayList<Pet> pets = new ArrayList<>();
 
-        Owner owner1 = new Owner("Alice", "123456", "123 Street", 2);
-        Veterinarian vet1 = new Veterinarian("Dr. Smith", "Surgery", 7, true);
+        // Sample objects
+        people.add(new Owner("Alice", 30, "123456", "123 Street", 2));
+        people.add(new Veterinarian("Dr. Smith", 40, "Surgery"));
 
-        pet1.printInfo();
-        pet2.printInfo();
-        owner1.printInfo();
-        vet1.printInfo();
+        pets.add(new Pet("Buddy", "Dog", 3, "Healthy"));
+        pets.add(new Pet("Kitty", "Cat", 2, "Sick"));
 
-        System.out.println("Is pet sick? " + pet1.isSick());
-        System.out.println("Does owner have multiple pets? " + owner1.hasMultiplePets());
-        System.out.println("Is veterinarian experienced? " + vet1.isExperienced());
+        // Simple Menu
+        Scanner sc = new Scanner(System.in);
+        boolean running = true;
+        while (running) {
+            System.out.println("\nMenu:");
+            System.out.println("1. View all people");
+            System.out.println("2. View all pets");
+            System.out.println("3. Exit");
+            System.out.print("Choice: ");
+            int choice = sc.nextInt();
+
+            switch (choice) {
+                case 1:
+                    System.out.println("=== People ===");
+                    for (Person p : people) {
+                        System.out.println(p);
+                        p.work(); // Polymorphism
+                    }
+                    break;
+                case 2:
+                    System.out.println("=== Pets ===");
+                    for (Pet pet : pets) {
+                        System.out.println(pet + ", Is sick? " + pet.isSick());
+                    }
+                    break;
+                case 3:
+                    running = false;
+                    break;
+                default:
+                    System.out.println("Invalid choice!");
+            }
+        }
+        sc.close();
     }
 }
