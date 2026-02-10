@@ -1,7 +1,10 @@
 package menu;
 
-import database.PetDAO;
-import model.Pet;
+import database.ClinicPersonDAO;
+import exception.InvalidInputException;
+import model.ClinicPerson;
+import model.Owner;
+import model.Veterinarian;
 
 import java.util.List;
 import java.util.Scanner;
@@ -9,22 +12,23 @@ import java.util.Scanner;
 public class MenuManager {
 
     private final Scanner scanner = new Scanner(System.in);
-    private final PetDAO petDAO = new PetDAO();
+    private final ClinicPersonDAO dao = new ClinicPersonDAO(); // DB only source of truth
 
     public void displayMenu() {
         System.out.println("""
-                ===== VET CLINIC MENU =====
-                1. Add Pet
-                2. View All Pets
-                3. Update Pet
-                4. Delete Pet
-                5. Search Pet by Name
-                6. Search Pets by Age Range
-                7. Search Pets with Age >= X
-                8. Add Owner
-                9. View All Owners
-                10. Add Veterinarian
-                11. View All Veterinarians
+                ===== VET CLINIC MENU (Week 8) =====
+                1. Add Owner
+                2. Add Veterinarian
+                3. View All People (DB)
+                4. View Owners (DB)
+                5. View Veterinarians (DB)
+                6. Update Owner (SAFE)
+                7. Update Veterinarian (SAFE)
+                8. Delete Person (SAFE)
+                9. Search by Name (ILIKE %...%)
+                10. Search Vets by Experience Range (BETWEEN)
+                11. Search Vets by Min Experience (>= X)
+                12. Polymorphism Demo (DB data)
                 0. Exit
                 """);
     }
@@ -34,125 +38,246 @@ public class MenuManager {
 
         while (running) {
             displayMenu();
-            System.out.print("Enter choice: ");
-            int choice = Integer.parseInt(scanner.nextLine());
 
-            switch (choice) {
-                case 1 -> addPet();
-                case 2 -> petDAO.getAllPets();
-                case 3 -> updatePet();
-                case 4 -> deletePet();
-                case 5 -> searchByName();
-                case 6 -> searchByAgeRange();
-                case 7 -> searchByMinAge();
-                case 8 -> addOwner();
-                case 9 -> viewAllOwners();
-                case 10 -> addVeterinarian();
-                case 11 -> viewAllVeterinarians();
-                case 0 -> {
-                    System.out.println("Goodbye!");
-                    running = false;
+            try {
+                int choice = readInt("Enter choice: ");
+
+                switch (choice) {
+                    case 1 -> addOwner();
+                    case 2 -> addVeterinarian();
+                    case 3 -> viewAllPeople();
+                    case 4 -> viewOwners();
+                    case 5 -> viewVeterinarians();
+                    case 6 -> updateOwnerSafe();
+                    case 7 -> updateVeterinarianSafe();
+                    case 8 -> deletePersonSafe();
+                    case 9 -> searchByName();
+                    case 10 -> searchByExperienceRange();
+                    case 11 -> searchByMinExperience();
+                    case 12 -> polymorphismDemoFromDB();
+                    case 0 -> running = false;
+                    default -> System.out.println("Invalid choice!");
                 }
-                default -> System.out.println("Invalid choice!");
+
+            } catch (InvalidInputException e) {
+                System.out.println("Input error: " + e.getMessage());
+            } catch (IllegalArgumentException e) {
+                System.out.println("Validation error: " + e.getMessage());
+            } catch (Exception e) {
+                System.out.println("Unexpected error: " + e.getMessage());
+            }
+
+            if (running) {
+                System.out.println("\nPress Enter to continue...");
+                scanner.nextLine();
             }
         }
+
+        scanner.close();
+        System.out.println("Program finished.");
     }
 
+    // ---------- CREATE ----------
+    private void addOwner() throws InvalidInputException {
+        System.out.println("\n--- ADD OWNER ---");
+        String name = readString("Name: ");
+        String phone = readString("Phone: ");
+        int pets = readInt("Number of pets: ");
 
-    // ===== MENU ACTIONS =====
-
-    private void addPet() {
-        System.out.print("Name: ");
-        String name = scanner.nextLine();
-
-        System.out.print("Species: ");
-        String species = scanner.nextLine();
-
-        System.out.print("Age: ");
-        int age = Integer.parseInt(scanner.nextLine());
-
-        System.out.print("Owner name: ");
-        String owner = scanner.nextLine();
-
-        Pet pet = new Pet(name, species, age, owner);
-        petDAO.insertPet(pet);
+        dao.insertOwner(name, phone, pets);
+        System.out.println("✅ Owner inserted into DB.");
     }
 
-    private void updatePet() {
-        System.out.print("Enter pet ID to update: ");
-        int id = Integer.parseInt(scanner.nextLine());
+    private void addVeterinarian() throws InvalidInputException {
+        System.out.println("\n--- ADD VETERINARIAN ---");
+        String name = readString("Name: ");
+        String spec = readString("Specialization: ");
+        int exp = readInt("Experience years: ");
 
-        System.out.print("New name: ");
-        String name = scanner.nextLine();
-
-        System.out.print("New species: ");
-        String species = scanner.nextLine();
-
-        System.out.print("New age: ");
-        int age = Integer.parseInt(scanner.nextLine());
-
-        System.out.print("New owner name: ");
-        String owner = scanner.nextLine();
-
-        Pet pet = new Pet(id, name, species, age, owner);
-        petDAO.updatePet(pet);
+        dao.insertVeterinarian(name, spec, exp);
+        System.out.println("✅ Veterinarian inserted into DB.");
     }
 
-    private void deletePet() {
-        System.out.print("Enter pet ID to delete: ");
-        int id = Integer.parseInt(scanner.nextLine());
+    // ---------- READ ----------
+    private void viewAllPeople() {
+        System.out.println("\n--- ALL PEOPLE (DB) ---");
+        List<ClinicPerson> people = dao.getAllPeople();
+        if (people.isEmpty()) {
+            System.out.println("No records found.");
+            return;
+        }
+        people.forEach(System.out::println);
+    }
 
-        System.out.print("Are you sure? (yes/no): ");
-        String confirm = scanner.nextLine();
+    private void viewOwners() {
+        System.out.println("\n--- OWNERS (DB) ---");
+        List<Owner> owners = dao.getOwners();
+        if (owners.isEmpty()) {
+            System.out.println("No owners found.");
+            return;
+        }
+        owners.forEach(System.out::println);
+    } private void viewVeterinarians() {
+        System.out.println("\n--- VETERINARIANS (DB) ---");
+        List<Veterinarian> vets = dao.getVeterinarians();
+        if (vets.isEmpty()) {
+            System.out.println("No veterinarians found.");
+            return;
+        }
+        vets.forEach(System.out::println);
+    }
 
-        if (confirm.equalsIgnoreCase("yes")) {
-            petDAO.deletePet(id);
-        } else {
+    // ---------- UPDATE (SAFE) ----------
+    private void updateOwnerSafe() throws InvalidInputException {
+        System.out.println("\n--- UPDATE OWNER (SAFE) ---");
+        int id = readInt("Enter owner ID: ");
+
+        Owner existing = dao.getOwnerById(id);
+        if (existing == null) {
+            System.out.println("No OWNER found with ID: " + id);
+            return;
+        }
+
+        System.out.println("Current: " + existing);
+        System.out.println("Press Enter to keep current value.");
+
+        System.out.print("New name [" + existing.getName() + "]: ");
+        String name = scanner.nextLine().trim();
+        if (name.isEmpty()) name = existing.getName();
+
+        System.out.print("New phone [" + existing.getPhone() + "]: ");
+        String phone = scanner.nextLine().trim();
+        if (phone.isEmpty()) phone = existing.getPhone();
+
+        System.out.print("New number of pets [" + existing.getNumberOfPets() + "]: ");
+        String petsInput = scanner.nextLine().trim();
+        int pets = petsInput.isEmpty() ? existing.getNumberOfPets() : Integer.parseInt(petsInput);
+
+        boolean ok = dao.updateOwner(id, name, phone, pets);
+        System.out.println(ok ? "✅ Owner updated." : "❌ Update failed.");
+    }
+
+    private void updateVeterinarianSafe() throws InvalidInputException {
+        System.out.println("\n--- UPDATE VETERINARIAN (SAFE) ---");
+        int id = readInt("Enter vet ID: ");
+
+        Veterinarian existing = dao.getVeterinarianById(id);
+        if (existing == null) {
+            System.out.println("No VETERINARIAN found with ID: " + id);
+            return;
+        }
+
+        System.out.println("Current: " + existing);
+        System.out.println("Press Enter to keep current value.");
+
+        System.out.print("New name [" + existing.getName() + "]: ");
+        String name = scanner.nextLine().trim();
+        if (name.isEmpty()) name = existing.getName();
+
+        System.out.print("New specialization [" + existing.getSpecialization() + "]: ");
+        String spec = scanner.nextLine().trim();
+        if (spec.isEmpty()) spec = existing.getSpecialization();
+
+        System.out.print("New experience [" + existing.getExperience() + "]: ");
+        String expInput = scanner.nextLine().trim();
+        int exp = expInput.isEmpty() ? existing.getExperience() : Integer.parseInt(expInput);
+
+        boolean ok = dao.updateVeterinarian(id, name, spec, exp);
+        System.out.println(ok ? "✅ Veterinarian updated." : "❌ Update failed.");
+    }
+
+    // ---------- DELETE (SAFE) ----------
+    private void deletePersonSafe() throws InvalidInputException {
+        System.out.println("\n--- DELETE PERSON (SAFE) ---");
+        int id = readInt("Enter person ID: ");
+
+        ClinicPerson existing = dao.getPersonById(id);
+        if (existing == null) {
+            System.out.println("No person found with ID: " + id);
+            return;
+        }
+
+        System.out.println("To delete: " + existing);
+        String confirm = readString("Are you sure? (yes/no): ");
+        if (!confirm.equalsIgnoreCase("yes")) {
             System.out.println("Delete cancelled.");
+            return;
+        }
+
+        boolean ok = dao.deletePerson(id);
+        System.out.println(ok ? "✅ Deleted." : "❌ Delete failed.");
+    }
+
+    // ---------- SEARCH ----------
+    private void searchByName() throws InvalidInputException {
+        System.out.println("\n--- SEARCH BY NAME (ILIKE) ---");
+        String keyword = readString("Keyword: ");
+
+        List<ClinicPerson> results = dao.searchByName(keyword);
+        if (results.isEmpty()) {
+            System.out.println("No results.");
+            return;
+        }
+        results.forEach(System.out::println);
+    } private void searchByExperienceRange() throws InvalidInputException {
+        System.out.println("\n--- SEARCH VETS BY EXPERIENCE RANGE (BETWEEN) ---");
+        int min = readInt("Min exp: ");
+        int max = readInt("Max exp: ");
+
+        List<Veterinarian> results = dao.searchVetsByExperienceRange(min, max);
+        if (results.isEmpty()) {
+            System.out.println("No results.");
+            return;
+        }
+        results.forEach(System.out::println);
+    }
+
+    private void searchByMinExperience() throws InvalidInputException {
+        System.out.println("\n--- SEARCH VETS BY MIN EXPERIENCE (>= X) ---");
+        int min = readInt("Min exp: ");
+
+        List<Veterinarian> results = dao.searchVetsByMinExperience(min);
+        if (results.isEmpty()) {
+            System.out.println("No results.");
+            return;
+        }
+        results.forEach(System.out::println);
+    }
+
+    // ---------- POLYMORPHISM FROM DB ----------
+    private void polymorphismDemoFromDB() {
+        System.out.println("\n--- POLYMORPHISM DEMO (DB DATA) ---");
+        List<ClinicPerson> people = dao.getAllPeople();
+
+        if (people.isEmpty()) {
+            System.out.println("DB is empty. Add Owner/Vet first.");
+            return;
+        }
+
+        System.out.println("Calling getRoleInfo() on ClinicPerson references:");
+        for (ClinicPerson p : people) {
+            System.out.println("• " + p.getRoleInfo());
+        }
+
+        System.out.println("✅ Same method name, different output => polymorphism.");
+    }
+
+    // ---------- INPUT HELPERS ----------
+    private int readInt(String prompt) throws InvalidInputException {
+        String s = readString(prompt);
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            throw new InvalidInputException("Please enter a valid integer.");
         }
     }
 
-    private void searchByName() {
-        System.out.print("Enter name to search: ");
-        String name = scanner.nextLine();
-
-        List<Pet> pets = petDAO.searchPetsByName(name);
-        pets.forEach(System.out::println);
+    private String readString(String prompt) throws InvalidInputException {
+        System.out.print(prompt);
+        String input = scanner.nextLine();
+        if (input == null || input.trim().isEmpty()) {
+            throw new InvalidInputException("Input cannot be empty.");
+        }
+        return input.trim();
     }
-
-    private void searchByAgeRange() {
-        System.out.print("Min age: ");
-        int min = Integer.parseInt(scanner.nextLine());
-
-        System.out.print("Max age: ");
-        int max = Integer.parseInt(scanner.nextLine());
-
-        List<Pet> pets = petDAO.searchPetsByAgeRange(min, max);
-        pets.forEach(System.out::println);
-    }
-
-    private void searchByMinAge() {
-        System.out.print("Enter minimum age: ");
-        int age = Integer.parseInt(scanner.nextLine());
-
-        List<Pet> pets = petDAO.searchPetsByMinAge(age);
-        pets.forEach(System.out::println);
-    }
-
-    private void addOwner() {
-        System.out.println("Add Owner (Week 8 placeholder)");
-    }
-
-    private void viewAllOwners() {
-        System.out.println("View All Owners (Week 8 placeholder)");
-    }
-
-    private void addVeterinarian() {
-        System.out.println("Add Veterinarian (Week 8 placeholder)");
-    }
-
-    private void viewAllVeterinarians() {
-        System.out.println("View All Veterinarians (Week 8 placeholder)");
-    }
-
 }
